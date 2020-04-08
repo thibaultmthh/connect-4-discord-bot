@@ -88,17 +88,28 @@ class Puissance4():
         self.insert_column(nb_column, out_column)
         return True
 
-
+class truc_de_merde_flemme_de_resoudre_lerreur():
+    def __init__(self):
+        self.id =0
 class Game():
     def __init__(self, playersID, shape=(6, 7), name="base"):
-        self.playersID = playersID
+        self.playersID = []
+        for playerID in playersID:
+            self.playersID.append(playerID.id)
         self.game = Puissance4(shape)
         self.shape = shape
         self.name = name
         self.last_played = 0
+        self.id_message_reaction = truc_de_merde_flemme_de_resoudre_lerreur()
+        self.id_message_grille = truc_de_merde_flemme_de_resoudre_lerreur()
+        self.column_played = 0
+        self.player_had_play = 0
 
     def get_game(self):
         return self.game.get_plateau()
+
+    def get_turn_player(self):
+        return self.playersID[self.last_played]
 
     def jouer(self, id, column):
         if id not in self.playersID:
@@ -106,17 +117,20 @@ class Game():
 
         if id != self.playersID[self.last_played]:
             return "Ce n'est pas ton tour, le tour de <@{}>".format(self.playersID[self.last_played])
-
+        print("je joue en ", column)
+        self.column_played = column
         pion_value = 0
         for n, pID in enumerate(self.playersID):
             if pID == id:
                 pion_value = n + 1
         if self.game.add_pion(column, pion_value):
+
+            self.player_had_play = self.playersID[self.last_played]
             if len(self.playersID)-1 == self.last_played:
                 self.last_played = 0
             else:
                 self.last_played +=1
-            return ""
+            return "Au tour de <@{}>".format(self.playersID[self.last_played])
         else:
             return "<@{}> La colone est pleine, rejout".format(self.playersID[self.last_played])
     def check_winner(self):
@@ -128,20 +142,6 @@ class Game():
 
 
 
-def get_mention_in_text(text):
-    list_mention = []
-    open = 0
-    taille = len(text)
-    for index, lettre in enumerate(text):
-        if lettre == "<" and open == 0:
-            if index != taille:
-                if text[index + 1] == "@" and text[index + 2] == "!":
-                    open = index + 3
-        if lettre == ">" and open > 0:
-            list_mention.append(int(text[open:index]))
-            open = 0
-    return list_mention
-
 def supprime_game(nom):
     try:
         del games_en_cours[nom]
@@ -150,7 +150,7 @@ def supprime_game(nom):
         return False
 
 
-async def affiche_game(chanel, game):
+async def affiche_game(game, new, chanel = None):
     couleurs = "⚪🔵🔴🟢🟣🟡🟤⚫"
     jeux_z = np.array(game.get_game()).reshape(game.shape[0]*game.shape[1]).astype(int)
     result_array = jeux_z.copy().astype(str)
@@ -162,14 +162,69 @@ async def affiche_game(chanel, game):
         result_text += "".join(ligne.tolist())
         result_text +="\n"
     result_text += "1️⃣2️⃣3️⃣4️⃣5️⃣6️⃣7️⃣"
-    await chanel.send(result_text)
+    if game.id_message_grille.id == 0 or new:
+        game.id_message_grille = await chanel.send(result_text)
+        return 1
+    else:
+        await game.id_message_grille.edit(content = result_text)
+        return 2
+
+async def affiche_message(game, message,chanel =None,new = False):
+
+    boutons = ["1️⃣", "2️⃣", "3️⃣","4️⃣","5️⃣", "6️⃣","7️⃣"]
+    if game == None:
+        await chanel.send(message)
+        return
+    if game.id_message_reaction.id == 0 or new:
+        game.id_message_reaction = await chanel.send(message)
+        for x in boutons:
+            await game.id_message_reaction.add_reaction(x)
+    else:
+        await game.id_message_reaction.edit(content = message)
 
 
 
 
-import time
+@client.event
+async def on_reaction_add(reaction, user):
+    if user.bot:
+        print(user, "is a bot")
+        return
 
-last_leaderboard = 1
+
+    message_id = reaction.message.id
+    name_game = ""
+    boutons = ["1️⃣", "2️⃣", "3️⃣","4️⃣","5️⃣", "6️⃣","7️⃣"]
+    responce = ""
+
+    for _, name in enumerate(games_en_cours):
+        game = games_en_cours[name]
+        if game.id_message_reaction.id == message_id:
+            name_game = name
+            break
+    if len(name_game)>0:
+        print(user.id,game.playersID)
+        if user.id in game.playersID:
+            for index,bouton in enumerate(boutons):
+                if bouton == reaction.emoji:
+                    responce += game.jouer(user.id, index)
+                    await affiche_game(game, new = False)
+
+                    e = game.check_winner()
+                    if e[0]:
+                        responce = "Gagnant <@{}> !!  \n".format(str(e[1]))
+                        if supprime_game( name_game):
+                            responce += "Game supprimée"
+
+
+        else:
+            await reaction.message.remove_reaction(reaction, user)
+            responce += "Tu n'est pas inscrit dans cette partie <@{}>".format(user.id)
+    if len(responce)>0:
+        print(game.id_message_reaction, "id message de la game")
+        await affiche_message(game = game, message=responce)
+
+    await game.id_message_reaction.remove_reaction(reaction.emoji, user)
 
 
 
@@ -182,10 +237,11 @@ async def on_message(message):
         return
     global games_en_cours
     split_message = message.content.split()
-    mention = get_mention_in_text(message.content)
+    mention = message.mentions
     joueur = message.author.id
     responce = " "
     repondre = True
+    error = False
 
     if split_message[0] == "*newx4":
         # Cree une game
@@ -198,42 +254,15 @@ async def on_message(message):
         except:
             pass
 
-        if nom_free and len(mention) > 1:
-            game = Game(mention)
+        if nom_free and len(mention) > 0:
+            game = Game(mention, name = name_game)
             games_en_cours[name_game] = game
             responce += " Game créé sous le nom de {} avec {} joueurs ".format(
                 name_game, len(mention))
-            await affiche_game(message.channel, game)
-
-    elif split_message[0] == "*play":
-        # jouer sur une game en cours
-        nom_bon = True
-        name_game = split_message[1]
-        columns_bon = True
-        try:
-            game = games_en_cours[name_game]
-        except:
-            nom_bon = False
-            responce += " Le nom de la Game est incorrect "
-        try:
-            columns_to_play = int(split_message[2])-1
-            if columns_to_play-1 > game.shape[1]:
-                columns_bon = False
-        except:
-            columns_bon = False
-            responce += " La column rentrée est incorrect "
-
-        if nom_bon + columns_bon == 2:
-            messageE = game.jouer(joueur, columns_to_play)
-            await affiche_game(message.channel, game)
-
-            responce += messageE
-            e = game.check_winner()
-            if e[0]:
-                responce += "Gagnant <@{}> !!  \n".format(str(e[1]))
-                if supprime_game( name_game):
-                    responce += "Game supprimée"
-
+            await affiche_game(game, new = True, chanel = message.channel)
+        else:
+            responce += "Pas assé de joueurs pour demarrer "
+            error = True
 
     elif split_message[0] == "*resume":
         nom_bon = True
@@ -245,8 +274,11 @@ async def on_message(message):
             responce += " Le nom de la Game est incorrect "
 
         if nom_bon:
-            await affiche_game(message.channel, game)
-
+            await affiche_game(game, new = True, chanel = message.channel)
+            error = True
+            responce += "Welcome back <@{}>".format(message.author.id)
+        else:
+            error = True
     elif split_message[0] == "*destroy":
         nom_bon = True
         name_game = split_message[1]
@@ -259,20 +291,17 @@ async def on_message(message):
         if nom_bon:
             if supprime_game( name_game):
                 responce += "Game supprimée"
+                error = True
+
 
     else:
         repondre = False
     if repondre:
         if len(responce)> 1:
-            await message.channel.send(responce)
-
-
-
-
-a = np.array([1,3,4,3,5])
-b = np.array([1,4,2,3,6])
-a ==b
-sum(a == b)
+            if not error:
+                await affiche_message(game,message=responce, chanel = message.channel)
+            else:
+                await affiche_message(chanel = message.channel, game = None, new = True, message=responce)
 
 
 
