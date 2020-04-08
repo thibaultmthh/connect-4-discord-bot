@@ -93,7 +93,9 @@ class truc_de_merde_flemme_de_resoudre_lerreur():
         self.id =0
 class Game():
     def __init__(self, playersID, shape=(6, 7), name="base"):
-        self.playersID = playersID
+        self.playersID = []
+        for playerID in playersID:
+            self.playersID.append(playerID.id)
         self.game = Puissance4(shape)
         self.shape = shape
         self.name = name
@@ -140,20 +142,6 @@ class Game():
 
 
 
-def get_mention_in_text(text):
-    list_mention = []
-    open = 0
-    taille = len(text)
-    for index, lettre in enumerate(text):
-        if lettre == "<" and open == 0:
-            if index != taille:
-                if text[index + 1] == "@" and text[index + 2] == "!":
-                    open = index + 3
-        if lettre == ">" and open > 0:
-            list_mention.append(int(text[open:index]))
-            open = 0
-    return list_mention
-
 def supprime_game(nom):
     try:
         del games_en_cours[nom]
@@ -162,7 +150,7 @@ def supprime_game(nom):
         return False
 
 
-async def affiche_game(chanel, game, new):
+async def affiche_game(game, new, chanel = None):
     couleurs = "⚪🔵🔴🟢🟣🟡🟤⚫"
     jeux_z = np.array(game.get_game()).reshape(game.shape[0]*game.shape[1]).astype(int)
     result_array = jeux_z.copy().astype(str)
@@ -193,11 +181,7 @@ async def affiche_message(game, message,chanel =None,new = False):
             await game.id_message_reaction.add_reaction(x)
     else:
         await game.id_message_reaction.edit(content = message)
-        print("AAA", game.player_had_play)
-        player = client.get_user(game.player_had_play)
-        print(player)
-        print(boutons[game.column_played], game.column_played)
-        await game.id_message_reaction.remove_reaction(boutons[game.column_played], player)
+
 
 
 
@@ -224,7 +208,7 @@ async def on_reaction_add(reaction, user):
             for index,bouton in enumerate(boutons):
                 if bouton == reaction.emoji:
                     responce += game.jouer(user.id, index)
-                    await affiche_game(None, game, new = False)
+                    await affiche_game(game, new = False)
 
                     e = game.check_winner()
                     if e[0]:
@@ -235,18 +219,12 @@ async def on_reaction_add(reaction, user):
 
         else:
             await reaction.message.remove_reaction(reaction, user)
+            responce += "Tu n'est pas inscrit dans cette partie <@{}>".format(user.id)
     if len(responce)>0:
         print(game.id_message_reaction, "id message de la game")
         await affiche_message(game = game, message=responce)
 
-
-
-
-
-
-
-
-
+    await game.id_message_reaction.remove_reaction(reaction.emoji, user)
 
 
 
@@ -259,7 +237,7 @@ async def on_message(message):
         return
     global games_en_cours
     split_message = message.content.split()
-    mention = get_mention_in_text(message.content)
+    mention = message.mentions
     joueur = message.author.id
     responce = " "
     repondre = True
@@ -276,45 +254,15 @@ async def on_message(message):
         except:
             pass
 
-        if nom_free and len(mention) > 1:
+        if nom_free and len(mention) > 0:
             game = Game(mention, name = name_game)
             games_en_cours[name_game] = game
             responce += " Game créé sous le nom de {} avec {} joueurs ".format(
                 name_game, len(mention))
-            await affiche_game(message.channel, game, new = True)
+            await affiche_game(game, new = True, chanel = message.channel)
         else:
+            responce += "Pas assé de joueurs pour demarrer "
             error = True
-
-    elif split_message[0] == "*play":
-        # jouer sur une game en cours
-        nom_bon = True
-        name_game = split_message[1]
-        columns_bon = True
-        try:
-            game = games_en_cours[name_game]
-        except:
-            nom_bon = False
-            responce += " Le nom de la Game est incorrect "
-        try:
-            columns_to_play = int(split_message[2])-1
-            if columns_to_play-1 > game.shape[1]:
-                columns_bon = False
-        except:
-            columns_bon = False
-            responce += " La column rentrée est incorrect "
-
-        if nom_bon + columns_bon == 2:
-            responce += game.jouer(joueur, columns_to_play)
-            await affiche_game(message.channel, game, new = False)
-
-            e = game.check_winner()
-            if e[0]:
-                responce += "Gagnant <@{}> !!  \n".format(str(e[1]))
-                if supprime_game( name_game):
-                    responce += "Game supprimée"
-                    error = True
-
-
 
     elif split_message[0] == "*resume":
         nom_bon = True
@@ -326,10 +274,11 @@ async def on_message(message):
             responce += " Le nom de la Game est incorrect "
 
         if nom_bon:
-            await affiche_game(message.channel, game, new = True)
+            await affiche_game(game, new = True, chanel = message.channel)
+            error = True
+            responce += "Welcome back <@{}>".format(message.author.id)
         else:
             error = True
-
     elif split_message[0] == "*destroy":
         nom_bon = True
         name_game = split_message[1]
@@ -344,24 +293,15 @@ async def on_message(message):
                 responce += "Game supprimée"
                 error = True
 
+
     else:
         repondre = False
     if repondre:
         if len(responce)> 1:
             if not error:
-                await affiche_message(game,message=responce)
+                await affiche_message(game,message=responce, chanel = message.channel)
             else:
                 await affiche_message(chanel = message.channel, game = None, new = True, message=responce)
-
-
-
-
-
-
-a = np.array([1,3,4,3,5])
-b = np.array([1,4,2,3,6])
-a ==b
-sum(a == b)
 
 
 
