@@ -9,12 +9,12 @@ client = discord.Client()
 
 games_en_cours = {}
 
-
+usefull = ["user_id","adversaires_user_ids","jeu","temps_partie","timestamp"]
 try:
-    dfMessage = pd.read_csv("data/BDD_scores.csv")
+    dfGames = pd.read_csv("data/BDD_scores.csv")[usefull]
 except:
-    dfMessage = pd.DataFrame({"username": [],"user_id":[], "adversaires_user_ids":[], "vicoire": [],"jeu": [],"temps_partie": [],"timestamp":[]})
-    dfMessage.to_csv('data/BDD_scores.csv')
+    dfGames = pd.DataFrame({"user_id":[], "adversaires_user_ids":[], "jeu": [],"temps_partie": [],"timestamp":[]})
+    dfGames.to_csv('data/BDD_scores.csv')
 
 
 
@@ -112,6 +112,7 @@ class Game():
         self.id_message_grille = truc_de_merde_flemme_de_resoudre_lerreur()
         self.column_played = 0
         self.player_had_play = 0
+        self.timestamp_start = time.time()
 
     def get_game(self):
         return self.game.get_plateau()
@@ -143,9 +144,11 @@ class Game():
     def check_winner(self):
         r = self.game.check_victory()
         vainqueur = "A <@{}>".format(self.playersID[self.last_played])
+        e = 0
         if r[0]:
             vainqueur = self.playersID[r[1]-1]
-        return r[0], vainqueur
+            e = {"user_id":vainqueur, "adversaires_user_ids":self.playersID, "jeu": "x4","temps_partie": (time.time() - self.timestamp_start),"timestamp":time.time()}
+        return r[0], vainqueur , e
 
 
 
@@ -194,6 +197,7 @@ async def affiche_message(game, message,chanel =None,new = False):
 
 @client.event
 async def on_reaction_add(reaction, user):
+    global dfGames
     if user.bot:
         #print(user, "is a bot")
         return
@@ -220,6 +224,8 @@ async def on_reaction_add(reaction, user):
                     e = game.check_winner()
                     if e[0]:
                         responce = "Gagnant <@{}> !!  \n".format(str(e[1]))
+                        dfGames = dfGames.append(e[2], ignore_index = True)
+                        dfGames.to_csv("data/BDD_scores.csv")
                         if supprime_game( name_game):
                             responce += "Game supprimée\n__See you later ;)__"
 
