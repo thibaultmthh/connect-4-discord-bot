@@ -122,10 +122,10 @@ class Game():
 
     def jouer(self, id, column):
         if id not in self.playersID:
-            return "Tu n'est pas inscris dans cette partie"
+            return "Tu n'es pas inscrit dans cette partie"
 
         if id != self.playersID[self.last_played]:
-            return "Ohh doucement, attend ton tour, C'est actuelement le tour de <@{}>".format(self.playersID[self.last_played])
+            return "Ohh doucement, attend ton tour, C'est actuellement le tour de <@{}>".format(self.playersID[self.last_played])
         self.column_played = column
         pion_value = 0
         for n, pID in enumerate(self.playersID):
@@ -138,13 +138,12 @@ class Game():
                 self.last_played = 0
             else:
                 self.last_played +=1
-            return "A toi de jouer <@{}>".format(self.playersID[self.last_played])
+            return "À toi de jouer <@{}>".format(self.playersID[self.last_played])
         else:
-            return "<@{}> La colone est pleine, Rejoue sur une autre".format(self.playersID[self.last_played])
+            return "<@{}> La colonne est pleine, Rejoue sur une autre".format(self.playersID[self.last_played])
     def check_winner(self):
         r = self.game.check_victory()
-        vainqueur = "A <@{}>".format(self.playersID[self.last_played])
-        e = 0
+        vainqueur = "C'est au tour de <@{}>".format(self.playersID[self.last_played])
         if r[0]:
             vainqueur = self.playersID[r[1]-1]
             e = {"user_id":vainqueur, "adversaires_user_ids":self.playersID, "jeu": "x4","temps_partie": (time.time() - self.timestamp_start),"timestamp":time.time()}
@@ -181,7 +180,7 @@ async def affiche_game(game, new, chanel = None):
 
 async def affiche_message(game, message,chanel =None,new = False):
 
-    boutons = ["1️⃣", "2️⃣", "3️⃣","4️⃣","5️⃣", "6️⃣","7️⃣"]
+    boutons = ["1️⃣", "2️⃣","3️⃣","4️⃣","5️⃣","6️⃣","7️⃣"]
     if game == None:
         await chanel.send(message)
         return
@@ -223,7 +222,7 @@ async def on_reaction_add(reaction, user):
 
                     e = game.check_winner()
                     if e[0]:
-                        responce = "Gagnant <@{}> !!  \n".format(str(e[1]))
+                        responce = "Le gagnant est <@{}> !!  \n".format(str(e[1]))
                         dfGames = dfGames.append(e[2], ignore_index = True)
                         dfGames.to_csv("data/BDD_scores.csv")
                         if supprime_game( name_game):
@@ -232,7 +231,7 @@ async def on_reaction_add(reaction, user):
 
         else:
             await reaction.message.remove_reaction(reaction, user)
-            responce += "Tu n'est malheureusement pas inscris a la partie <@{}>".format(user.id)
+            responce += "Tu n'es malheureusement pas inscrit à la partie <@{}>".format(user.id)
     if len(responce)>0:
         print(game.id_message_reaction, "id message de la game")
         await affiche_message(game = game, message=responce)
@@ -263,19 +262,19 @@ async def on_message(message):
         try:
             games_en_cours[name_game]
             nom_free = False
-            responce += "Le nom de la partie n'est pas disponible\n"
+            responce += "Ce nom de partie n'est pas disponible\n"
         except:
             pass
 
         if nom_free and len(mention) > 0:
             game = Game(mention, name = name_game)
             games_en_cours[name_game] = game
-            responce += " Partie créé avec le nom de **{}**. Il y a {} joueurs \n".format(
+            responce += " Partie créée avec le nom de **{}**. Il y a {} joueurs inscrits\n".format(
                 name_game, len(mention))
-            responce += "Cliquer sur les réactions pour placé un jeton dans la column de votre choix\n **Have Fun**"
+            responce += "Cliquez sur les réactions pour placer un jeton dans la colonne de votre choix\n **Have Fun**"
             await affiche_game(game, new = True, chanel = message.channel)
         else:
-            responce += "Vous n'êtes pas assez nombreux"
+            responce += "Vous n'êtes pas assez nombreux pour lancer une partie"
             error = True
 
     elif split_message[0] == "*resume":
@@ -285,7 +284,7 @@ async def on_message(message):
             game = games_en_cours[name_game]
         except:
             nom_bon = False
-            responce += "Le non de la partie est incorect"
+            responce += "Aucune partie correspondant à ce nom trouvée"
 
         if nom_bon:
             await affiche_game(game, new = True, chanel = message.channel)
@@ -300,7 +299,7 @@ async def on_message(message):
             game = games_en_cours[name_game]
         except:
             nom_bon = False
-            responce += "Le non de la partie est incorect"
+            responce += "Aucune partie correspondant à ce nom trouvée"
 
         if nom_bon:
             if supprime_game( name_game):
@@ -308,11 +307,11 @@ async def on_message(message):
                 error = True
     elif split_message[0] == "*helpx4":
         responce += "Pour demarrer une partie : \n"
-        responce += "__*newx4 [nom_de_la_partie] [@joueurs1][@joueurs2][@ect]__ \n"
+        responce += "`__*newx4 [nom_de_la_partie] [@joueurs1][@joueurs2][@ect]__`\n"
         responce += "Pour reprendre une partie en cours :\n"
-        responce += "__*resume [nom_de_la_partie]__\n"
+        responce += "`__*resume [nom_de_la_partie]__`\n"
         responce += "Pour supprimer une partie :\n"
-        responce += "__*destroy [nom_de_la_partie]__ \n"
+        responce += "`__*destroy [nom_de_la_partie]__`\n"
         responce += "Have fun !"
         error = True
 
