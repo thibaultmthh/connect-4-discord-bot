@@ -3,6 +3,7 @@ import random
 import discord
 import pandas as pd
 import time
+import asyncio
 from discord.ext import tasks
 client = discord.Client()
 
@@ -119,7 +120,6 @@ class AI_player():
 
 
     def score(self, liste_combinaisons):
-        a = time.time()
         score = 0
         for x in self.score_data.keys():
             list_patern = self.score_data[x]
@@ -137,65 +137,45 @@ class AI_player():
             simulation = self.simule_move(x, game.grille)
             score_sim = self.score(simulation.get_liste_combinaisons)
             results.append(score_sim)
-        return np.argmax(results)
+
+        best = random.choice(np.argwhere(results == np.amax(results)))[0]
+        e = 0
+        while not simulation.add_pion(best,2) and len(results) != 0:
+            results[best] = - 1000000
+            best = random.choice(np.argwhere(results == np.amax(results)))[0]
+            e += 1
+            if e > 10:
+                break
+
+        return best
+
+"""
+temps1 = time.time()
+results = []
+for x in trange(4):
+    game = Puissance4()
+    AI = AI_player()
+    lastP = 0
+    while not game.check_victory()[0]:
+
+        if lastP%2 == 0:
+            moveAI = AI.find_best_move(game)
+            game.add_pion(moveAI, 1) #jeux random
+        else:
+            moveAI = AI.find_best_move(game)
+            game.add_pion(moveAI, 2)
+        lastP += 1
+        if lastP > 50:
+            print("fini")
+            break
+
+    results.append(game.check_victory())
 
 
-
-
-
-
-game = Puissance4()
-AI = AI_player()
-lastP = 0
-while not game.check_victory()[0]:
-
-    if lastP%2 == 0:
-        moveAI = AI.find_best_move(game)
-        print(moveAI)
-        game.add_pion(moveAI, 1) #jeux random
-    else:
-        moveAI = AI.find_best_move(game)
-        print(moveAI)
-        game.add_pion(moveAI, 2)
-    lastP += 1
-print(game.check_victory())
-print(game.grille)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+print((time.time()-temps1)/4, "moyenne")
+print(results)
+game.get_liste_combinaisons
+"""
 
 
 
@@ -213,6 +193,7 @@ class Game():
         self.playersID = []
         for playerID in playersID:
             self.playersID.append(playerID.id)
+
         self.game = Puissance4(shape)
         self.shape = shape
         self.name = name
@@ -223,8 +204,16 @@ class Game():
         self.player_had_play = 0
         self.timestamp_start = time.time()
 
+        self.contre_bot = False
+        if len(self.playersID) == 1:
+            self.contre_bot = True
+            self.bot = AI_player()
+            self.playersID.append(client.user.id)
+
+
+
     def get_game(self):
-        return self.game.get_plateau()
+        return self.game.grille
 
     def get_turn_player(self):
         return self.playersID[self.last_played]
@@ -241,18 +230,32 @@ class Game():
             if pID == id:
                 pion_value = n + 1
         if self.game.add_pion(column, pion_value):
-
-            self.player_had_play = self.playersID[self.last_played]
-            if len(self.playersID)-1 == self.last_played:
-                self.last_played = 0
+            if not self.contre_bot:
+                self.player_had_play = self.playersID[self.last_played]
+                if len(self.playersID)-1 == self.last_played:
+                    self.last_played = 0
+                else:
+                    self.last_played +=1
+                return "À toi de jouer <@{}>".format(self.playersID[self.last_played])
             else:
-                self.last_played +=1
-            return "À toi de jouer <@{}>".format(self.playersID[self.last_played])
+                moveAI = self.bot.find_best_move(self.game)
+                self.game.add_pion(moveAI, 2)
+                return "À 🔵 de jouer , le 🔴 a joué en __{}__".format(moveAI+1)
+
         else:
             return "<@{}> La colonne est pleine, Rejoue sur une autre".format(self.playersID[self.last_played])
+
+
+
+
+
+
+
+
     def check_winner(self):
         r = self.game.check_victory()
         vainqueur = "C'est au tour de <@{}>".format(self.playersID[self.last_played])
+        e = 0
         if r[0]:
             vainqueur = self.playersID[r[1]-1]
             e = {"user_id":vainqueur, "adversaires_user_ids":self.playersID, "jeu": "x4","temps_partie": (time.time() - self.timestamp_start),"timestamp":time.time()}
