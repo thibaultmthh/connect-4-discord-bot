@@ -3,7 +3,6 @@ import random
 import discord
 import pandas as pd
 import time
-import random
 from discord.ext import tasks
 client = discord.Client()
 
@@ -18,24 +17,21 @@ except:
 
 
 
-
-
 with open("token.txt","r") as f:
     token = f.readline().replace("\n","")
 
 
 class Puissance4():
     def __init__(self, shape=(6, 7) ,grille = None):
-        if grille == None:
+        if type(grille) != type(np.array([])):
             self.grille = np.zeros(shape)
         else:
             self.grille = grille.copy()
-        print(self.grille)
 
     def get_column(self, nb_column):
         column = []
         for ligne in self.grille:
-            column.append(ligne[nb_column])
+            column.append(ligne[nb_column].tolist())
         return column
 
 
@@ -45,14 +41,14 @@ class Puissance4():
         for s in self.get_all_diag():
             list_combinaison.append(s)
         for s in self.grille:
-            list_combinaison.append(s)
+            list_combinaison.append(s.tolist())
         return list_combinaison
 
     def get_all_diag(self):
         diagonales = []
         for x in range(0 - self.grille.shape[0] + 1, self.grille.shape[1]):
-            diagonales.append(np.diag(self.grille, k=x))
-            diagonales.append(np.diag(np.fliplr(self.grille), k=x))
+            diagonales.append(np.diag(self.grille, k=x).tolist())
+            diagonales.append(np.diag(np.fliplr(self.grille), k=x).tolist())
         return diagonales
 
     def get_all_columns(self):
@@ -71,7 +67,7 @@ class Puissance4():
         return
 
     def check_victory(self):
-        list_combinaison = get_liste_combinaisons()
+        list_combinaison = self.get_liste_combinaisons
         for liste in list_combinaison:
             last_val = 0
             nb = 1
@@ -116,27 +112,68 @@ class AI_player():
         self.die = ["1111"]
         self.score_data = {"100000": self.win_patern, "2": self.almost_win,"1": self.better, "-2": self.bad, "-100": self.verry_bad, "-1000000":self.die }
 
-
-
-
     def simule_move(self, column, grille, pion_value = 2):
-        partie = Puissance4(grille)
-        #partie.add_pion(column, pion_value)
+        partie = Puissance4(grille = grille)
+        partie.add_pion(column, pion_value)
         return partie
 
 
-    def score_move(self, liste_combinaisons):
-        pass
+    def score(self, liste_combinaisons):
+        a = time.time()
+        score = 0
+        for x in self.score_data.keys():
+            list_patern = self.score_data[x]
+            reward = int(x)
+            for x in list_patern:
+                for y in liste_combinaisons:
+                    y= np.array(y).astype(int).astype(str)
+                    if x in "".join(y):
+                        score += reward
+        return score
+
+    def find_best_move(self, game):
+        results = []
+        for x in range(7):
+            simulation = self.simule_move(x, game.grille)
+            score_sim = self.score(simulation.get_liste_combinaisons)
+            results.append(score_sim)
+        return np.argmax(results)
+
+
+
 
 
 
 game = Puissance4()
-game.add_pion(4,1)
 AI = AI_player()
-AI.simule_move(3,game.grille).grille
+lastP = 0
+while not game.check_victory()[0]:
+
+    if lastP%2 == 0:
+        moveAI = AI.find_best_move(game)
+        print(moveAI)
+        game.add_pion(moveAI, 1) #jeux random
+    else:
+        moveAI = AI.find_best_move(game)
+        print(moveAI)
+        game.add_pion(moveAI, 2)
+    lastP += 1
+print(game.check_victory())
+print(game.grille)
 
 
-game.grille
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
