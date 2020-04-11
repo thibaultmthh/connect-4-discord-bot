@@ -25,17 +25,28 @@ with open("token.txt","r") as f:
 
 
 class Puissance4():
-    def __init__(self, shape=(6, 7)):
-        self.grille = np.zeros(shape)
-
-    def get_plateau(self):
-        return self.grille
+    def __init__(self, shape=(6, 7) ,grille = None):
+        if grille == None:
+            self.grille = np.zeros(shape)
+        else:
+            self.grille = grille.copy()
+        print(self.grille)
 
     def get_column(self, nb_column):
         column = []
         for ligne in self.grille:
             column.append(ligne[nb_column])
         return column
+
+
+    @property
+    def get_liste_combinaisons(self):
+        list_combinaison = self.get_all_columns()
+        for s in self.get_all_diag():
+            list_combinaison.append(s)
+        for s in self.grille:
+            list_combinaison.append(s)
+        return list_combinaison
 
     def get_all_diag(self):
         diagonales = []
@@ -52,18 +63,15 @@ class Puissance4():
 
     def insert_column(self, nb_column, value):
         a = 0
+
         for ligne in self.grille:
             ligne[nb_column] = value[a]
             self.grille[a] = ligne
             a += 1
+        return
 
     def check_victory(self):
-        list_combinaison = self.get_all_columns()
-
-        for s in self.get_all_diag():
-            list_combinaison.append(s)
-        for s in self.grille:
-            list_combinaison.append(s)
+        list_combinaison = get_liste_combinaisons()
         for liste in list_combinaison:
             last_val = 0
             nb = 1
@@ -96,6 +104,70 @@ class Puissance4():
         self.insert_column(nb_column, out_column)
         return True
 
+
+
+class AI_player():
+    def __init__(self):
+        self.win_patern = ["2222"]
+        self.almost_win = ["0222", "2022","2202","2220"]
+        self.better = ["0022", "2002", "2200", "2020","0220","0202"]
+        self.bad = ["0011", "1001", "1100", "1010","0110","0101"]
+        self.verry_bad = ["0111", "1011","1101","1110"]
+        self.die = ["1111"]
+        self.score_data = {"100000": self.win_patern, "2": self.almost_win,"1": self.better, "-2": self.bad, "-100": self.verry_bad, "-1000000":self.die }
+
+
+
+
+    def simule_move(self, column, grille, pion_value = 2):
+        partie = Puissance4(grille)
+        #partie.add_pion(column, pion_value)
+        return partie
+
+
+    def score_move(self, liste_combinaisons):
+        pass
+
+
+
+game = Puissance4()
+game.add_pion(4,1)
+AI = AI_player()
+AI.simule_move(3,game.grille).grille
+
+
+game.grille
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+##### Partie bot discord
 class truc_de_merde_flemme_de_resoudre_lerreur():
     def __init__(self):
         self.id =0
