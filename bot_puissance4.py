@@ -238,7 +238,7 @@ class Game():
                     self.last_played +=1
                 return "À toi de jouer <@{}>".format(self.playersID[self.last_played])
             else:
-                if not self.check_winner()[0]#si le joueur n'a pas deja gagner
+                if not self.check_winner()[0]:#si le joueur n'a pas deja gagner
                     moveAI = self.bot.find_best_move(self.game)
                     self.game.add_pion(moveAI, 2)
                     return "À 🔵 de jouer , le 🔴 a joué en __{}__".format(moveAI+1)
@@ -247,8 +247,6 @@ class Game():
 
         else:
             return "<@{}> La colonne est pleine, Rejoue sur une autre".format(self.playersID[self.last_played])
-
-
 
 
 
