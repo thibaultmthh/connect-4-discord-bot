@@ -144,6 +144,7 @@ class Game():
     def check_winner(self):
         r = self.game.check_victory()
         vainqueur = "C'est au tour de <@{}>".format(self.playersID[self.last_played])
+        e = 0
         if r[0]:
             vainqueur = self.playersID[r[1]-1]
             e = {"user_id":vainqueur, "adversaires_user_ids":self.playersID, "jeu": "x4","temps_partie": (time.time() - self.timestamp_start),"timestamp":time.time()}
