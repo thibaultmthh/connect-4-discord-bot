@@ -3,7 +3,7 @@ import random
 import discord
 import pandas as pd
 import time
-import random
+import asyncio
 from discord.ext import tasks
 client = discord.Client()
 
@@ -18,30 +18,38 @@ except:
 
 
 
-
-
 with open("token.txt","r") as f:
     token = f.readline().replace("\n","")
 
 
 class Puissance4():
-    def __init__(self, shape=(6, 7)):
-        self.grille = np.zeros(shape)
-
-    def get_plateau(self):
-        return self.grille
+    def __init__(self, shape=(6, 7) ,grille = None):
+        if type(grille) != type(np.array([])):
+            self.grille = np.zeros(shape)
+        else:
+            self.grille = grille.copy()
 
     def get_column(self, nb_column):
         column = []
         for ligne in self.grille:
-            column.append(ligne[nb_column])
+            column.append(ligne[nb_column].tolist())
         return column
+
+
+    @property
+    def get_liste_combinaisons(self):
+        list_combinaison = self.get_all_columns()
+        for s in self.get_all_diag():
+            list_combinaison.append(s)
+        for s in self.grille:
+            list_combinaison.append(s.tolist())
+        return list_combinaison
 
     def get_all_diag(self):
         diagonales = []
         for x in range(0 - self.grille.shape[0] + 1, self.grille.shape[1]):
-            diagonales.append(np.diag(self.grille, k=x))
-            diagonales.append(np.diag(np.fliplr(self.grille), k=x))
+            diagonales.append(np.diag(self.grille, k=x).tolist())
+            diagonales.append(np.diag(np.fliplr(self.grille), k=x).tolist())
         return diagonales
 
     def get_all_columns(self):
@@ -52,18 +60,15 @@ class Puissance4():
 
     def insert_column(self, nb_column, value):
         a = 0
+
         for ligne in self.grille:
             ligne[nb_column] = value[a]
             self.grille[a] = ligne
             a += 1
+        return
 
     def check_victory(self):
-        list_combinaison = self.get_all_columns()
-
-        for s in self.get_all_diag():
-            list_combinaison.append(s)
-        for s in self.grille:
-            list_combinaison.append(s)
+        list_combinaison = self.get_liste_combinaisons
         for liste in list_combinaison:
             last_val = 0
             nb = 1
@@ -96,6 +101,90 @@ class Puissance4():
         self.insert_column(nb_column, out_column)
         return True
 
+
+
+class AI_player():
+    def __init__(self):
+        self.win_patern = ["2222"]
+        self.almost_win = ["0222", "2022","2202","2220"]
+        self.better = ["0022", "2002", "2200", "2020","0220","0202"]
+        self.bad = ["0011", "1001", "1100", "1010","0110","0101"]
+        self.verry_bad = ["0111", "1011","1101","1110"]
+        self.die = ["1111"]
+        self.score_data = {"100000": self.win_patern, "2": self.almost_win,"1": self.better, "-2": self.bad, "-100": self.verry_bad, "-1000000":self.die }
+
+    def simule_move(self, column, grille, pion_value = 2):
+        partie = Puissance4(grille = grille)
+        partie.add_pion(column, pion_value)
+        return partie
+
+
+    def score(self, liste_combinaisons):
+        score = 0
+        for x in self.score_data.keys():
+            list_patern = self.score_data[x]
+            reward = int(x)
+            for x in list_patern:
+                for y in liste_combinaisons:
+                    y= np.array(y).astype(int).astype(str)
+                    if x in "".join(y):
+                        score += reward
+        return score
+
+    def find_best_move(self, game):
+        results = []
+        for x in range(7):
+            simulation = self.simule_move(x, game.grille)
+            score_sim = self.score(simulation.get_liste_combinaisons)
+            results.append(score_sim)
+
+        best = random.choice(np.argwhere(results == np.amax(results)))[0]
+        e = 0
+        while not simulation.add_pion(best,2) and len(results) != 0:
+            results[best] = - 1000000
+            best = random.choice(np.argwhere(results == np.amax(results)))[0]
+            e += 1
+            if e > 10:
+                break
+
+        return best
+
+"""
+temps1 = time.time()
+results = []
+for x in trange(4):
+    game = Puissance4()
+    AI = AI_player()
+    lastP = 0
+    while not game.check_victory()[0]:
+
+        if lastP%2 == 0:
+            moveAI = AI.find_best_move(game)
+            game.add_pion(moveAI, 1) #jeux random
+        else:
+            moveAI = AI.find_best_move(game)
+            game.add_pion(moveAI, 2)
+        lastP += 1
+        if lastP > 50:
+            print("fini")
+            break
+
+    results.append(game.check_victory())
+
+
+print((time.time()-temps1)/4, "moyenne")
+print(results)
+game.get_liste_combinaisons
+"""
+
+
+
+
+
+
+
+
+##### Partie bot discord
 class truc_de_merde_flemme_de_resoudre_lerreur():
     def __init__(self):
         self.id =0
@@ -104,6 +193,7 @@ class Game():
         self.playersID = []
         for playerID in playersID:
             self.playersID.append(playerID.id)
+
         self.game = Puissance4(shape)
         self.shape = shape
         self.name = name
@@ -114,8 +204,16 @@ class Game():
         self.player_had_play = 0
         self.timestamp_start = time.time()
 
+        self.contre_bot = False
+        if len(self.playersID) == 1:
+            self.contre_bot = True
+            self.bot = AI_player()
+            self.playersID.append(client.user.id)
+
+
+
     def get_game(self):
-        return self.game.get_plateau()
+        return self.game.grille
 
     def get_turn_player(self):
         return self.playersID[self.last_played]
@@ -132,15 +230,31 @@ class Game():
             if pID == id:
                 pion_value = n + 1
         if self.game.add_pion(column, pion_value):
-
-            self.player_had_play = self.playersID[self.last_played]
-            if len(self.playersID)-1 == self.last_played:
-                self.last_played = 0
+            if not self.contre_bot:
+                self.player_had_play = self.playersID[self.last_played]
+                if len(self.playersID)-1 == self.last_played:
+                    self.last_played = 0
+                else:
+                    self.last_played +=1
+                return "À toi de jouer <@{}>".format(self.playersID[self.last_played])
             else:
-                self.last_played +=1
-            return "À toi de jouer <@{}>".format(self.playersID[self.last_played])
+                if not self.check_winner()[0]#si le joueur n'a pas deja gagner
+                    moveAI = self.bot.find_best_move(self.game)
+                    self.game.add_pion(moveAI, 2)
+                    return "À 🔵 de jouer , le 🔴 a joué en __{}__".format(moveAI+1)
+                else:
+                    return ""
+
         else:
             return "<@{}> La colonne est pleine, Rejoue sur une autre".format(self.playersID[self.last_played])
+
+
+
+
+
+
+
+
     def check_winner(self):
         r = self.game.check_victory()
         vainqueur = "C'est au tour de <@{}>".format(self.playersID[self.last_played])
