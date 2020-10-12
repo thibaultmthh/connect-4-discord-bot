@@ -122,7 +122,7 @@ class Puissance4():
 
 
 class AI_player():
-    def __init__(self, pion_value = 2, it_value = 1, v = 1,t = 1):
+    def __init__(self, pion_value = 2, it_value = 2, v = 1,t = 1):
         self.v = v
         self.my_pion_value = pion_value
         if pion_value == 2:
